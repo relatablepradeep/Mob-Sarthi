@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import * as mobilenet from "@tensorflow-models/mobilenet";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 
@@ -9,9 +9,15 @@ interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
 
+interface DetectedObject {
+  bbox: [number, number, number, number];
+  class: string;
+  score: number;
+}
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
+  const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [status, setStatus] = useState("Waiting for camera permission...");
   const [isStarted, setIsStarted] = useState(false);
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -82,7 +88,7 @@ export default function Home() {
     window.speechSynthesis.speak(utter);
   };
 
-  // === LOAD LIGHTWEIGHT MODEL ===
+  // === LOAD COCO-SSD MODEL FOR BETTER ACCURACY ===
   useEffect(() => {
     (async () => {
       try {
@@ -91,9 +97,10 @@ export default function Home() {
         await tf.ready();
         console.log("✅ Backend ready:", tf.getBackend());
 
-        setStatus("Loading MobileNet model (fast)...");
-        const loadedModel = await mobilenet.load({ version: 2, alpha: 1.0 });
-        console.log("✅ MobileNet model loaded!");
+        setStatus("Loading COCO-SSD model (accurate detection)...");
+        // Use mobilenet_v2 base for higher accuracy
+        const loadedModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+        console.log("✅ COCO-SSD model loaded!");
         setModel(loadedModel);
         setStatus("Model ready. Tap 'Start Camera' to begin detection.");
       } catch (err) {
@@ -108,23 +115,24 @@ export default function Home() {
     if (!model || !isStarted) return;
 
     const detect = async () => {
-      if (!videoRef.current || detectingRef.current) {
+      if (!videoRef.current || detectingRef.current || videoRef.current.readyState < 2) {
         requestAnimationFrame(detect);
         return;
       }
 
       detectingRef.current = true;
-      const predictions = await model.classify(videoRef.current);
+      const predictions: DetectedObject[] = await model.detect(videoRef.current);
       detectingRef.current = false;
 
       let label = "nothing";
-      if (predictions.length > 0 && predictions[0].probability > 0.4) {
-        label = predictions[0].className;
+      // Use 0.5 threshold for COCO-SSD
+      if (predictions.length > 0 && predictions[0].score > 0.5) {
+        label = predictions[0].class;
       }
 
-      // Keep last 7 detections for better stability (increased from 5)
+      // Keep last 10 detections for improved stability
       recentLabels.current.push(label);
-      if (recentLabels.current.length > 7) {
+      if (recentLabels.current.length > 10) {
         recentLabels.current.shift();
       }
 
@@ -132,7 +140,7 @@ export default function Home() {
       if (stable !== stableLabel) {
         setStableLabel(stable);
         if (stable !== "nothing") {
-          const msg = `Near you is ${stable}.`;
+          const msg = `Near you is a ${stable}.`;
           setStatus(msg);
           speak(msg);
         } else {
@@ -174,7 +182,7 @@ export default function Home() {
 
       if (transcript.includes("what do you see")) {
         if (stableLabel && stableLabel !== "nothing")
-          speak(`Near you is ${stableLabel}.`);
+          speak(`Near you is a ${stableLabel}.`);
         else speak("I don't see anything near you right now.");
       } else if (transcript.includes("stop speaking")) {
         window.speechSynthesis.cancel();
@@ -192,17 +200,22 @@ export default function Home() {
     return () => recognition.stop();
   }, [stableLabel, voice]);
 
-  // === STABILITY HELPER ===
+  // === IMPROVED STABILITY HELPER ===
   const getStableLabel = (arr: string[]) => {
     const counts: Record<string, number> = {};
     for (const val of arr) counts[val] = (counts[val] || 0) + 1;
+    const maxCount = Math.max(...Object.values(counts));
+    const majorityThreshold = arr.length * 0.6; // Require 60% majority for stability
+    if (maxCount < majorityThreshold) {
+      return "nothing"; // Not stable enough, default to nothing
+    }
     return Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
   };
 
   // === UI ===
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
-      <h1 className="text-3xl font-bold mb-4">👁️ Blind Vision Assistant (Fast)</h1>
+      <h1 className="text-3xl font-bold mb-4">👁️ Blind Vision Assistant (Accurate)</h1>
 
       {!isStarted && (
         <button
