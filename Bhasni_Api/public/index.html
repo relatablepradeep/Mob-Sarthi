@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sarthi PDF Assistant - Fee Structure Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+      padding: 16px;
+    }
+
+    /* Floating Orbs Background */
+    .floating-orbs {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.1;
+      animation: float 25s infinite linear;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 100%);
+    }
+
+    .orb:nth-child(1) {
+      width: 120px;
+      height: 120px;
+      left: 10%;
+      animation-duration: 30s;
+    }
+
+    .orb:nth-child(2) {
+      width: 80px;
+      height: 80px;
+      left: 80%;
+      animation-duration: 35s;
+      animation-delay: -10s;
+    }
+
+    .orb:nth-child(3) {
+      width: 100px;
+      height: 100px;
+      left: 50%;
+      animation-duration: 40s;
+      animation-delay: -20s;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+      }
+      100% {
+        transform: translateY(-100px) rotate(360deg);
+      }
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 2rem;
+      border-radius: 24px;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      position: relative;
+      z-index: 10;
+      animation: slideDown 0.8s ease-out;
+    }
+
+    .header-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #1a1a1a;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-subtitle {
+      color: #64748b;
+      font-size: 1.125rem;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Chat Container */
+    .chat-container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 24px;
+      padding: 2.5rem;
+      box-shadow: 0 16px 64px rgba(0, 0, 0, 0.15);
+      animation: slideUp 0.8s ease-out 0.2s both;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* Language Selection */
+    .language-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.05));
+      border-radius: 16px;
+      border: 1px solid rgba(102, 126, 234, 0.15);
+      backdrop-filter: blur(10px);
+    }
+
+    .language-section label {
+      display: block;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+
+    .language-section select {
+      width: 100%;
+      padding: 1rem;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      font-size: 1rem;
+      color: #374151;
+      font-weight: 500;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .language-section select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* Chat Messages Area */
+    .chat-messages {
+      height: 500px;
+      overflow-y: auto;
+      padding: 2rem;
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.8), rgba(241, 245, 249, 0.6));
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(226, 232, 240, 0.5);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Welcome Message */
+    .welcome-message {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.08));
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      padding: 2.5rem;
+      border-radius: 20px;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      animation: fadeIn 1s ease-out;
+      backdrop-filter: blur(10px);
+    }
+
+    .welcome-message h3 {
+      color: #1f2937;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .welcome-message p {
+      color: #6b7280;
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 0;
+      opacity: 0.9;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Message Styles */
+    .message {
+      margin-bottom: 1.5rem;
+      animation: fadeInUp 0.5s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      text-align: right;
+    }
+
+    .message.bot {
+      text-align: left;
+    }
+
+    .message-content {
+      display: inline-block;
+      max-width: 85%;
+      padding: 1.25rem 1.5rem;
+      border-radius: 20px;
+      position: relative;
+      word-wrap: break-word;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .message.user .message-content {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-bottom-right-radius: 6px;
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .message.bot .message-content {
+      background: rgba(255, 255, 255, 0.95);
+      color: #374151;
+      border: 2px solid rgba(102, 126, 234, 0.1);
+      border-bottom-left-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .message-header {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .message.user .message-header {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* Fee Structure Highlighting */
+    .fee-highlight {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      color: #92400e;
+      padding: 0.3rem 0.6rem;
+      border-radius: 8px;
+      font-weight: 700;
+      box-shadow: 0 2px 4px rgba(146, 64, 14, 0.2);
+    }
+
+    .course-highlight {
+      background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+      color: #1d4ed8;
+      padding: 0.3rem 0.6rem;
+      border-radius: 8px;
+      font-weight: 700;
+      box-shadow: 0 2px 4px rgba(29, 78, 216, 0.2);
+    }
+
+    .important-highlight {
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      color: #047857;
+      padding: 0.3rem 0.6rem;
+      border-radius: 8px;
+      font-weight: 700;
+      box-shadow: 0 2px 4px rgba(4, 120, 87, 0.2);
+    }
+
+    /* Input Area */
+    .input-area {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
+    .input-container {
+      flex: 1;
+      position: relative;
+    }
+
+    .input-container input {
+      width: 100%;
+      padding: 1.25rem 1.5rem;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      border-radius: 25px;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 500;
+    }
+
+    .input-container input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 1);
+    }
+
+    .input-container input::placeholder {
+      color: #9ca3af;
+      opacity: 0.7;
+    }
+
+    .send-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .send-btn:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+    }
+
+    /* Message Actions */
+    .message-actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+    }
+
+    .action-btn:hover {
+      background: rgba(102, 126, 234, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Translation Section */
+    .translate-section {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(102, 126, 234, 0.08);
+      border-radius: 16px;
+      border: 2px solid rgba(102, 126, 234, 0.15);
+      animation: slideUp 0.3s ease-out;
+      backdrop-filter: blur(10px);
+    }
+
+    .translate-section select {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.9);
+      transition: all 0.3s ease;
+    }
+
+    .translate-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .translate-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .translated-content {
+      background: rgba(16, 185, 129, 0.1);
+      border: 2px solid rgba(16, 185, 129, 0.2);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-top: 0.75rem;
+      color: #065f46;
+      font-size: 0.9rem;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(102, 126, 234, 0.3);
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 1.5rem auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Scrollbar Styling */
+    .chat-messages::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: rgba(241, 245, 249, 0.5);
+      border-radius: 20px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+      border-radius: 20px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+
+      .header-title {
+        font-size: 2rem;
+      }
+
+      .header-subtitle {
+        font-size: 1rem;
+      }
+
+      .chat-container {
+        padding: 2rem;
+      }
+
+      .chat-messages {
+        height: 400px;
+        padding: 1.5rem;
+      }
+
+      .message-content {
+        max-width: 90%;
+        padding: 1rem;
+        font-size: 0.9rem;
+      }
+
+      .language-section {
+        padding: 1.25rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 8px;
+      }
+
+      .header-title {
+        font-size: 1.75rem;
+      }
+
+      .chat-container {
+        padding: 1.5rem;
+      }
+
+      .chat-messages {
+        height: 350px;
+        padding: 1.25rem;
+      }
+
+      .language-section {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .input-container input {
+        padding: 1rem;
+        font-size: 0.9rem;
+      }
+
+      .send-btn {
+        width: 50px;
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="floating-orbs">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <div class="container">
+    <header>
+      <div class="header-title">📄 Sarthi AI Assistant</div>
+      <div class="header-subtitle">Ask questions about any document or get instant answers</div>
+    </header>
+
+    <div class="chat-container">
+      <!-- Language Selection -->
+      <div class="language-section">
+        <label for="source-language">🌐 Select Your Language:</label>
+        <select id="source-language"></select>
+      </div>
+
+      <!-- Chat Messages -->
+      <div class="chat-messages" id="chat-messages">
+        <div class="welcome-message">
+          <h3>🤖 Welcome to Sarthi AI Assistant!</h3>
+          <p>I can help you find information from any document. Ask me questions about fees, courses, policies, or any other content. I'll provide detailed answers with highlighted key information.</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="input-container">
+          <input type="text" id="question-input" placeholder="Ask me anything about the document..." />
+        </div>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">
+          📤
+        </button>
+      </div>
+
+      <div class="loading-spinner" id="spinner"></div>
+    </div>
+  </div>
+
+  <script>
+    const keyValues = {
+      "en": "English", "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
+      "gom": "Goan Konkani", "gu": "Gujarati", "hi": "Hindi", "kn": "Kannada", "ks": "Kashmiri",
+      "mai": "Maithili", "ml": "Malayalam", "mni": "Manipuri", "mr": "Marathi", "ne": "Nepali",
+      "or": "Oriya", "pa": "Punjabi", "raj": "Rajasthani", "sa": "Sanskrit", "sat": "Santali", 
+      "sd": "Sindhi", "ta": "Tamil", "te": "Telugu", "ur": "Urdu"
+    };
+
+    let availableLangData = [];
+    let messageCounter = 0;
+
+    function populateLanguages(data) {
+      const sourceSelect = document.getElementById('source-language');
+      for (let key in data) {
+        const option = document.createElement('option');
+        option.value = data[key].sourceLanguage;
+        option.innerText = keyValues[option.value] || option.value;
+        sourceSelect.appendChild(option);
+      }
+      sourceSelect.value = "en";
+    }
+
+    function getTargetLangList(srcLang) {
+      const found = availableLangData.find(d => d.sourceLanguage === srcLang);
+      return found ? found.targetLanguageList : [];
+    }
+
+    function addMessage(text, isUser = false, showActions = true) {
+      const messagesContainer = document.getElementById('chat-messages');
+      const messageId = `msg-${++messageCounter}`;
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+      messageDiv.id = messageId;
+
+      const lang = document.getElementById('source-language').value;
+      const langName = keyValues[lang] || lang;
+
+      messageDiv.innerHTML = `
+        <div class="message-header">${isUser ? `👤 You (${langName})` : '🤖 Sarthi Assistant'}</div>
+        <div class="message-content">
+          <div id="text-${messageId}">${text}</div>
+          ${showActions && !isUser ? `
+            <div class="message-actions">
+              <button class="action-btn" onclick="showTranslate('${messageId}')">🌍 Translate</button>
+            </div>
+            <div id="translate-section-${messageId}" class="translate-section" style="display: none;">
+              <select id="lang-select-${messageId}"></select>
+              <button class="translate-btn" onclick="translateText('${messageId}')">✨ Translate</button>
+            </div>
+            <div id="translated-${messageId}" class="translated-content" style="display: none;"></div>
+          ` : ''}
+        </div>
+      `;
+
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      return messageId;
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('question-input');
+      const question = input.value.trim().toLowerCase();
+      
+      if (!question) return;
+
+      // Add user message
+      addMessage(input.value, true, false);
+      input.value = '';
+
+      // Show loading and process question
+      startLoading();
+      setTimeout(() => {
+        const response = generateResponse(question);
+        addMessage(response);
+        stopLoading();
+      }, 800);
+    }
+
+    function generateResponse(question) {
+      const q = question.toLowerCase();
+      
+      const feeKeywords = ['fee', 'fees', 'cost', 'price', 'tuition', 'bca', 'mba', 'mca', 'btech', 'b.tech', 'bcom', 'b.com', 'ba', 'mtech', 'm.tech'];
+      const hasFeeKeyword = feeKeywords.some(keyword => q.includes(keyword));
+      
+      if (!hasFeeKeyword) {
+        return `🤖 I can help you with various types of questions! Try asking about:<br><br>
+                • Document content and details<br>
+                • Specific information you're looking for<br>
+                • Fees and course information<br>
+                • Policies and procedures<br><br>
+                💡 What would you like to know?`;
+      }
+      
+      if (q.includes('bca')) {
+        return `📚 <span class="course-highlight">BCA Fee Information</span>:<br><br>
+                <span class="course-highlight">BCA (Bachelor of Computer Applications)</span>: <span class="fee-highlight">₹45,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This is an undergraduate course in Computer Applications with practical focus on software development.`;
+      }
+
+      if (q.includes('mba')) {
+        return `💼 <span class="course-highlight">MBA Fee Information</span>:<br><br>
+                <span class="course-highlight">MBA (Master of Business Administration)</span>: <span class="fee-highlight">₹75,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This is the highest fee among all postgraduate courses, reflecting the premium management education.`;
+      }
+
+      if (q.includes('mca')) {
+        return `💻 <span class="course-highlight">MCA Fee Information</span>:<br><br>
+                <span class="course-highlight">MCA (Master of Computer Applications)</span>: <span class="fee-highlight">₹50,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This is a postgraduate course building upon BCA foundation with advanced computing concepts.`;
+      }
+
+      if (q.includes('b.tech') || q.includes('btech') || q.includes('computer science')) {
+        return `🔧 <span class="course-highlight">B.Tech Fee Information</span>:<br><br>
+                <span class="course-highlight">B.Tech Computer Science</span>: <span class="fee-highlight">₹55,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This is the highest fee among undergraduate courses, offering comprehensive engineering education.`;
+      }
+
+      if (q.includes('b.com') || q.includes('bcom')) {
+        return `📊 <span class="course-highlight">B.Com Fee Information</span>:<br><br>
+                <span class="course-highlight">B.Com (Bachelor of Commerce)</span>: <span class="fee-highlight">₹25,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This course focuses on commerce, accounting, and business studies.`;
+      }
+
+      if (q.includes('ba') || q.includes('bachelor of arts')) {
+        return `🎨 <span class="course-highlight">BA Fee Information</span>:<br><br>
+                <span class="course-highlight">BA (Bachelor of Arts)</span>: <span class="fee-highlight">₹20,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 This is the most affordable undergraduate course, covering liberal arts and humanities.`;
+      }
+
+      if (q.includes('m.tech') || q.includes('mtech')) {
+        return `⚙️ <span class="course-highlight">M.Tech Fee Information</span>:<br><br>
+                <span class="course-highlight">M.Tech (Master of Technology)</span>: <span class="fee-highlight">₹60,000 per semester</span><br><br>
+                📋 Academic Session: 2025-26<br><br>
+                💡 Advanced engineering course with specialization in various technology domains.`;
+      }
+
+      if (q.includes('all fee') || q.includes('show all') || q.includes('complete fee') || q.includes('fee structure')) {
+        return `💰 <span class="important-highlight">Complete Fee Structure</span><br><br>
+                <strong>📚 Undergraduate Courses:</strong><br>
+                • <span class="course-highlight">BCA fee</span>: <span class="fee-highlight">₹45,000 per semester</span><br>
+                • <span class="course-highlight">B.Tech Computer Science fee</span>: <span class="fee-highlight">₹55,000 per semester</span><br>
+                • <span class="course-highlight">B.Com fee</span>: <span class="fee-highlight">₹25,000 per semester</span><br>
+                • <span class="course-highlight">BA fee</span>: <span class="fee-highlight">₹20,000 per semester</span><br><br>
+                <strong>🎓 Postgraduate Courses:</strong><br>
+                • <span class="course-highlight">MCA fee</span>: <span class="fee-highlight">₹50,000 per semester</span><br>
+                • <span class="course-highlight">M.Tech fee</span>: <span class="fee-highlight">₹60,000 per semester</span><br>
+                • <span class="course-highlight">MBA fee</span>: <span class="fee-highlight">₹75,000 per semester</span><br><br>
+                📅 <strong>Academic Session:</strong> 2025-26<br>
+                💡 <strong>Note:</strong> All fees are per semester basis.`;
+      }
+
+      if (q.includes('undergraduate') || q.includes('ug courses') || q.includes('bachelor')) {
+        return `🎓 <span class="important-highlight">Undergraduate Courses - Fee Structure</span><br><br>
+                • <span class="course-highlight">BCA (Bachelor of Computer Applications)</span>: <span class="fee-highlight">₹45,000 per semester</span><br>
+                • <span class="course-highlight">B.Tech Computer Science</span>: <span class="fee-highlight">₹55,000 per semester</span><br>
+                • <span class="course-highlight">B.Com (Bachelor of Commerce)</span>: <span class="fee-highlight">₹25,000 per semester</span><br>
+                • <span class="course-highlight">BA (Bachelor of Arts)</span>: <span class="fee-highlight">₹20,000 per semester</span><br><br>
+                💡 Fee range from ₹20,000 to ₹55,000 per semester. B.Tech CS has the highest fee due to technical infrastructure requirements.`;
+      }
+
+      if (q.includes('postgraduate') || q.includes('pg courses') || q.includes('master')) {
+        return `🎯 <span class="important-highlight">Postgraduate Courses - Fee Structure</span><br><br>
+                • <span class="course-highlight">MCA (Master of Computer Applications)</span>: <span class="fee-highlight">₹50,000 per semester</span><br>
+                • <span class="course-highlight">M.Tech (Master of Technology)</span>: <span class="fee-highlight">₹60,000 per semester</span><br>
+                • <span class="course-highlight">MBA (Master of Business Administration)</span>: <span class="fee-highlight">₹75,000 per semester</span><br><br>
+                💡 PG course fees range from ₹50,000 to ₹75,000 per semester. MBA has the highest fee reflecting premium management education.`;
+      }
+
+      if (q.includes('cheapest') || q.includes('lowest fee') || q.includes('minimum fee')) {
+        return `💰 <span class="course-highlight">Most Affordable Course</span>:<br><br>
+                <span class="course-highlight">BA (Bachelor of Arts)</span>: <span class="fee-highlight">₹20,000 per semester</span><br><br>
+                💡 This is the most affordable option available in the current fee structure.`;
+      }
+
+      if (q.includes('expensive') || q.includes('highest fee') || q.includes('maximum fee')) {
+        return `💎 <span class="course-highlight">Most Expensive Course</span>:<br><br>
+                <span class="course-highlight">MBA (Master of Business Administration)</span>: <span class="fee-highlight">₹75,000 per semester</span><br><br>
+                💡 This is the most expensive course due to premium faculty, infrastructure, and industry connections.`;
+      }
+
+      if (q.includes('semester') || q.includes('annual') || q.includes('yearly')) {
+        return `📅 <span class="course-highlight">Fee Payment Structure</span><br><br>
+                💡 <strong>All fees mentioned are per semester basis</strong><br><br>
+                📊 <strong>Annual Fee Calculation:</strong><br>
+                • Multiply semester fee × 2 for annual fee<br>
+                • Example: <span class="course-highlight">BCA</span> = <span class="fee-highlight">₹45,000 × 2 = ₹90,000 annually</span><br><br>
+                📋 All fee information is from official documentation.`;
+      }
+
+      return `💰 I have information about course fees and structures. Try asking about:<br><br>
+              • Specific courses (BCA, MBA, MCA, B.Tech, etc.)<br>
+              • "Show all fees" for complete fee structure<br>
+              • "Undergraduate courses" or "Postgraduate courses"<br>
+              • "Cheapest course" or "Most expensive course"<br><br>
+              💡 What specific fee information would you like to know?`;
+    }
+
+    function showTranslate(id) {
+      const section = document.getElementById(`translate-section-${id}`);
+      const select = document.getElementById(`lang-select-${id}`);
+      select.innerHTML = "";
+
+      const srcLang = document.getElementById("source-language").value;
+      const tgtList = getTargetLangList(srcLang);
+      tgtList.forEach(tgt => {
+        const opt = document.createElement("option");
+        opt.value = tgt;
+        opt.innerText = keyValues[tgt] || tgt;
+        select.appendChild(opt);
+      });
+
+      section.style.display = "block";
+    }
+
+    function translateText(id) {
+      const originalText = document.getElementById(`text-${id}`).innerText;
+      const sourceLang = document.getElementById("source-language").value;
+      const targetLang = document.getElementById(`lang-select-${id}`).value;
+
+      startLoading();
+      fetch("scaler/translate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          source_language: sourceLang,
+          content: originalText,
+          target_language: targetLang
+        })
+      }).then(res => res.json())
+        .then(data => {
+          const result = document.getElementById(`translated-${id}`);
+          result.innerHTML = `<strong>🌟 Translated (${keyValues[targetLang]}):</strong><br>${data.translated_content}`;
+          result.style.display = 'block';
+          stopLoading();
+        })
+        .catch(error => {
+          console.error('Translation error:', error);
+          const result = document.getElementById(`translated-${id}`);
+          result.innerHTML = `<strong>❌ Translation Error:</strong><br>Sorry, translation service is currently unavailable.`;
+          result.style.display = 'block';
+          stopLoading();
+        });
+    }
+
+    function startLoading() {
+      document.getElementById("spinner").style.display = "block";
+    }
+
+    function stopLoading() {
+      document.getElementById("spinner").style.display = "none";
+    }
+
+    // Event listeners
+    document.getElementById('question-input').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    document.getElementById('question-input').addEventListener('input', function() {
+      const sendBtn = document.getElementById('send-btn');
+      sendBtn.disabled = this.value.trim() === '';
+    });
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load languages
+      fetch('https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline', {
+        method: "POST",
+        headers: {
+          "userID": "9f55ae82e8204e4c86625573098e7707",
+          "ulcaApiKey": "52d075f861-561b-42fe-8b00-8a034acb4deb",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "pipelineTasks": [{ "taskType": "translation" }],
+          "pipelineRequestConfig": {
+            "pipelineId": "64392f96daac500b55c543cd"
+          }
+        })
+      }).then(res => res.json())
+        .then(data => {
+          availableLangData = data.languages;
+          populateLanguages(data.languages);
+        })
+        .catch(error => {
+          console.error('Error loading languages:', error);
+          // Fallback languages
+          const fallbackData = [
+            { sourceLanguage: "en", targetLanguageList: ["hi", "te", "ta", "bn"] },
+            { sourceLanguage: "hi", targetLanguageList: ["en", "te", "ta", "bn"] }
+          ];
+          availableLangData = fallbackData;
+          populateLanguages(fallbackData);
+        });
+
+      // Initialize send button state
+      document.getElementById('send-btn').disabled = true;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sawaal-Jawaab with Adalat Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #6B46C1 0%, #3B82F6 50%, #4F46E5 100%);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+
+    /* Floating Orbs Background */
+    .floating-orbs {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: float 20s infinite linear;
+      background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.1) 100%);
+    }
+
+    .orb:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      left: 10%;
+      animation-duration: 25s;
+      background: radial-gradient(circle, rgba(168,85,247,0.6) 0%, rgba(168,85,247,0.1) 100%);
+    }
+
+    .orb:nth-child(2) {
+      width: 60px;
+      height: 60px;
+      left: 80%;
+      animation-duration: 30s;
+      animation-delay: -5s;
+      background: radial-gradient(circle, rgba(59,130,246,0.6) 0%, rgba(59,130,246,0.1) 100%);
+    }
+
+    .orb:nth-child(3) {
+      width: 100px;
+      height: 100px;
+      left: 50%;
+      animation-duration: 35s;
+      animation-delay: -10s;
+      background: radial-gradient(circle, rgba(79,70,229,0.6) 0%, rgba(79,70,229,0.1) 100%);
+    }
+
+    .orb:nth-child(4) {
+      width: 40px;
+      height: 40px;
+      left: 30%;
+      animation-duration: 20s;
+      animation-delay: -15s;
+      background: radial-gradient(circle, rgba(139,92,246,0.6) 0%, rgba(139,92,246,0.1) 100%);
+    }
+
+    .orb:nth-child(5) {
+      width: 70px;
+      height: 70px;
+      left: 70%;
+      animation-duration: 28s;
+      animation-delay: -8s;
+      background: radial-gradient(circle, rgba(67,56,202,0.6) 0%, rgba(67,56,202,0.1) 100%);
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+      }
+      100% {
+        transform: translateY(-100px) rotate(360deg);
+      }
+    }
+
+    /* Glass morphism effect */
+    .glass {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    header {
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+      color: #1e1b4b;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      position: relative;
+      z-index: 10;
+      animation: slideDown 0.8s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .qa-panel {
+      margin-top: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(15px);
+      padding: 25px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+      position: relative;
+      z-index: 10;
+      animation: slideUp 0.8s ease-out 0.2s both;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+      color: white;
+      font-size: 16px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    select, textarea, input {
+      width: 100%;
+      padding: 12px 15px;
+      margin-top: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      font-size: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      color: #1e1b4b;
+    }
+
+    select:focus, textarea:focus, input:focus {
+      outline: none;
+      border: 2px solid rgba(168, 85, 247, 0.8);
+      background: rgba(252, 251, 255, 0.95);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    button:hover:before {
+      left: 100%;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+
+    .thread {
+      margin-top: 30px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .entry {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(15px);
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .entry:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .entry strong {
+      color: #E0E7FF;
+      font-size: 18px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .entry-text {
+      margin: 12px 0;
+      color: white;
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    .reply-btn {
+      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+      margin-right: 10px;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    .reply-btn:hover {
+      background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+    }
+
+    .loading-spinner {
+      display: none;
+      border: 6px solid rgba(255, 255, 255, 0.3);
+      border-top: 6px solid #A855F7;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 30px auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .reply-area {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    #translate-section-${id} select {
+      background: rgba(255, 255, 255, 0.95);
+      margin-bottom: 10px;
+    }
+
+    .translated-content {
+      background: rgba(168, 85, 247, 0.15);
+      padding: 15px;
+      border-radius: 12px;
+      border-left: 4px solid #A855F7;
+      margin-top: 10px;
+      color: #E0E7FF;
+    }
+
+    /* Pulsing animation for important elements */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      header {
+        font-size: 24px;
+        padding: 15px;
+      }
+
+      .qa-panel {
+        padding: 20px;
+      }
+
+      .entry {
+        padding: 15px;
+      }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(135deg, #A855F7, #3B82F6);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(135deg, #9333EA, #2563EB);
+    }
+  </style>
+</head>
+<body>
+  <div class="floating-orbs">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <header>✨ Sawaal-Jawaab Legal Platform ✨</header>
+
+  <div class="qa-panel">
+    <label for="source-language">🌐 Select Your Language:</label>
+    <select id="source-language"></select>
+
+    <label for="question">⚖️ Ask your legal question:</label>
+    <textarea id="question" placeholder="Write your legal sawaal here..." rows="4"></textarea>
+
+    <button id="ask-btn">🚀 Send Question</button>
+  </div>
+
+  <div class="thread" id="discussion-thread">
+    <!-- Dynamic thread content -->
+  </div>
+
+  <div class="loading-spinner" id="spinner"></div>
+
+  <script>
+    const keyValues = {
+      "en": "English", "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
+      "gom": "Goan Konkani", "gu": "Gujarati", "hi": "Hindi", "kn": "Kannada", "ks": "Kashmiri",
+      "mai": "Maithili", "ml": "Malayalam", "mni": "Manipuri", "mr": "Marathi", "ne": "Nepali",
+      "or": "Oriya", "pa": "Punjabi", "sa": "Sanskrit", "sat": "Santali", "sd": "Sindhi",
+      "ta": "Tamil", "te": "Telugu", "ur": "Urdu"
+    };
+
+    let availableLangData = [];
+
+    // Add some dynamic interactions
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add hover effects to elements
+      const elements = document.querySelectorAll('.qa-panel, .entry');
+      elements.forEach(el => {
+        el.addEventListener('mouseenter', function() {
+          this.style.transform = 'scale(1.02)';
+        });
+        el.addEventListener('mouseleave', function() {
+          this.style.transform = 'scale(1)';
+        });
+      });
+
+      // Add typing animation to placeholder
+      const textarea = document.getElementById('question');
+      const originalPlaceholder = textarea.placeholder;
+      let index = 0;
+      
+      function typeWriter() {
+        if (index < originalPlaceholder.length) {
+          textarea.placeholder = originalPlaceholder.substring(0, index + 1);
+          index++;
+          setTimeout(typeWriter, 100);
+        }
+      }
+      
+      textarea.placeholder = '';
+      setTimeout(typeWriter, 1000);
+    });
+
+    function populateLanguages(data) {
+      const sourceSelect = document.getElementById('source-language');
+      for (let key in data) {
+        const option = document.createElement('option');
+        option.value = data[key].sourceLanguage;
+        option.innerText = keyValues[option.value] || option.value;
+        sourceSelect.appendChild(option);
+      }
+      sourceSelect.value = "en";
+    }
+
+    function getTargetLangList(srcLang) {
+      const found = availableLangData.find(d => d.sourceLanguage === srcLang);
+      return found ? found.targetLanguageList : [];
+    }
+
+    function appendToThread(text, sender, id) {
+      const thread = document.getElementById("discussion-thread");
+      const div = document.createElement("div");
+      div.className = "entry";
+      div.id = id;
+
+      div.innerHTML = `
+        <strong>${sender}:</strong>
+        <p class="entry-text" id="text-${id}">${text}</p>
+
+        <button class="reply-btn" onclick="showReply('${id}')">💬 Reply</button>
+        <div class="reply-area" id="reply-${id}" style="display:none;">
+          <input type="text" id="reply-input-${id}" placeholder="Type your reply or '@adalat' to summon the bot..." />
+          <button onclick="sendReply('${id}')">📤 Send</button>
+        </div>
+
+        <button onclick="showTranslate('${id}')" class="reply-btn">🌍 Translate</button>
+        <div id="translate-section-${id}" style="display: none; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.08); border-radius: 12px;">
+          <select id="lang-select-${id}"></select>
+          <button onclick="translateText('${id}')">✨ Translate Text</button>
+        </div>
+        <div id="translated-${id}" class="translated-content" style="display: none;"></div>
+      `;
+      thread.appendChild(div);
+
+      // Add entrance animation
+      setTimeout(() => {
+        div.style.animation = 'fadeIn 0.5s ease-out';
+      }, 100);
+    }
+
+    function showReply(id) {
+      const replyArea = document.getElementById(`reply-${id}`);
+      replyArea.style.display = 'block';
+      replyArea.style.animation = 'slideUp 0.3s ease-out';
+      document.getElementById(`reply-input-${id}`).focus();
+    }
+
+    function sendReply(id) {
+      const input = document.getElementById(`reply-input-${id}`);
+      const text = input.value.trim();
+      if (!text) return;
+
+      const newId = id + "_r" + Date.now();
+      const div = document.createElement("div");
+      div.className = "entry";
+      div.id = newId;
+      div.style.marginLeft = "30px";
+      div.style.borderLeft = "3px solid #A855F7";
+
+      div.innerHTML = `
+        <strong>💭 Reply:</strong>
+        <p class="entry-text" id="text-${newId}">${text}</p>
+        <button onclick="showTranslate('${newId}')" class="reply-btn">🌍 Translate</button>
+        <div id="translate-section-${newId}" style="display: none; margin-top: 15px;">
+          <select id="lang-select-${newId}"></select>
+          <button onclick="translateText('${newId}')">✨ Translate Text</button>
+        </div>
+        <div id="translated-${newId}" class="translated-content" style="display: none;"></div>
+      `;
+
+      document.getElementById(id).appendChild(div);
+
+      if (text.includes("@adalat")) {
+        setTimeout(() => {
+          const botDiv = document.createElement("div");
+          botDiv.className = "entry";
+          botDiv.style.marginLeft = "30px";
+          botDiv.style.borderLeft = "3px solid #10B981";
+          botDiv.style.background = "rgba(16, 185, 129, 0.15)";
+          botDiv.innerHTML = `<strong>🤖 Adalat Bot:</strong><p class="entry-text">Namaste! How can I assist you with your legal query today? I'm here to help! ⚖️</p>`;
+          document.getElementById(id).appendChild(botDiv);
+        }, 1000);
+      }
+
+      input.value = "";
+      document.getElementById(`reply-${id}`).style.display = 'none';
+    }
+
+    function showTranslate(id) {
+      const section = document.getElementById(`translate-section-${id}`);
+      const select = document.getElementById(`lang-select-${id}`);
+      select.innerHTML = "";
+
+      const srcLang = document.getElementById("source-language").value;
+      const tgtList = getTargetLangList(srcLang);
+      tgtList.forEach(tgt => {
+        const opt = document.createElement("option");
+        opt.value = tgt;
+        opt.innerText = keyValues[tgt] || tgt;
+        select.appendChild(opt);
+      });
+
+      section.style.display = "block";
+      section.style.animation = 'slideUp 0.3s ease-out';
+    }
+
+    function translateText(id) {
+      const originalText = document.getElementById(`text-${id}`).innerText;
+      const sourceLang = document.getElementById("source-language").value;
+      const targetLang = document.getElementById(`lang-select-${id}`).value;
+
+      startLoading();
+      fetch("scaler/translate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          source_language: sourceLang,
+          content: originalText,
+          target_language: targetLang
+        })
+      }).then(res => res.json())
+        .then(data => {
+          const result = document.getElementById(`translated-${id}`);
+          result.innerHTML = `<strong>🌟 Translated (${keyValues[targetLang]}):</strong><p>${data.translated_content}</p>`;
+          result.style.display = 'block';
+          result.style.animation = 'fadeIn 0.5s ease-out';
+          stopLoading();
+        })
+        .catch(error => {
+          console.error('Translation error:', error);
+          const result = document.getElementById(`translated-${id}`);
+          result.innerHTML = `<strong>❌ Translation Error:</strong><p>Sorry, translation service is currently unavailable.</p>`;
+          result.style.display = 'block';
+          stopLoading();
+        });
+    }
+
+    function startLoading() {
+      document.getElementById("spinner").style.display = "block";
+    }
+
+    function stopLoading() {
+      document.getElementById("spinner").style.display = "none";
+    }
+
+    document.getElementById("ask-btn").addEventListener("click", () => {
+      const lang = document.getElementById("source-language").value;
+      const question = document.getElementById("question").value.trim();
+      if (!question) return;
+
+      const id = "q_" + Date.now();
+      appendToThread(question, `👤 User (${keyValues[lang]})`, id);
+      document.getElementById("question").value = "";
+      
+      // Add a subtle success animation
+      const button = document.getElementById("ask-btn");
+      button.style.background = "linear-gradient(135deg, #10B981 0%, #059669 100%)";
+      button.innerHTML = "✅ Question Sent!";
+      setTimeout(() => {
+        button.innerHTML = "🚀 Send Question";
+        button.style.background = "linear-gradient(135deg, #10B981 0%, #059669 100%)";
+      }, 2000);
+    });
+
+    // Handle Enter key in question textarea
+    document.getElementById("question").addEventListener("keypress", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById("ask-btn").click();
+      }
+    });
+
+    
+    fetch('https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline', {
+      method: "POST",
+      headers: {
+        "userID": "9f55ae82e8204e4c86625573098e7707",
+        "ulcaApiKey": "52d075f861-561b-42fe-8b00-8a034acb4deb",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        "pipelineTasks": [{ "taskType": "translation" }],
+        "pipelineRequestConfig": {
+          "pipelineId": "64392f96daac500b55c543cd"
+        }
+      })
+    }).then(res => res.json())
+      .then(data => {
+        availableLangData = data.languages;
+        populateLanguages(data.languages);
+      })
+      .catch(error => {
+        console.error('Error loading languages:', error);
+        // Fallback - populate with basic languages
+        const fallbackData = [
+          { sourceLanguage: "en", targetLanguageList: ["hi", "te", "ta", "bn"] },
+          { sourceLanguage: "hi", targetLanguageList: ["en", "te", "ta", "bn"] }
+        ];
+        availableLangData = fallbackData;
+        populateLanguages(fallbackData);
+      });
+  </script>
+</body>
+</html>
