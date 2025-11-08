@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 
-// 👇 Custom interface for speech recognition typing (fixes TS error)
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
@@ -16,6 +15,7 @@ export default function Home() {
   const [lastSpoken, setLastSpoken] = useState("");
   const [isStarted, setIsStarted] = useState(false);
   const [lastDetected, setLastDetected] = useState("");
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
 
   // === CAMERA SETUP ===
   const setupCamera = async () => {
@@ -36,14 +36,50 @@ export default function Home() {
     }
   };
 
-  // === SPEAK FUNCTION ===
+  // === LOAD BEST VOICE ===
+  useEffect(() => {
+    const loadVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Try to find a good English voice
+        const preferred =
+          voices.find((v) =>
+            v.name.includes("Google US English")
+          ) ||
+          voices.find((v) =>
+            v.name.includes("Google UK English Female")
+          ) ||
+          voices.find((v) => v.lang.startsWith("en")) ||
+          voices[0];
+        setVoice(preferred);
+        console.log("✅ Using voice:", preferred?.name);
+      }
+    };
+
+    loadVoice();
+    window.speechSynthesis.onvoiceschanged = loadVoice;
+  }, []);
+
+  // === SPEAK FUNCTION (SMOOTH) ===
   const speak = (text: string) => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel(); // stop previous speech
+    if (!("speechSynthesis" in window) || !text) return;
+
+    // Prevent re-speaking same thing
+    if (text === lastSpoken) return;
+
+    // Cancel ongoing only if it's still speaking
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.1;
-    window.speechSynthesis.speak(utter);
+    utter.rate = 0.95; // slightly slower for clarity
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    if (voice) utter.voice = voice;
+
     setLastSpoken(text);
+    window.speechSynthesis.speak(utter);
   };
 
   // === LOAD MODEL ===
@@ -68,7 +104,7 @@ export default function Home() {
         setStatus(message);
         setLastDetected(top.class);
 
-        // Speak only if new object is detected
+        // Speak only if new object detected
         if (top.class !== lastSpoken) {
           speak(message);
         }
@@ -80,7 +116,7 @@ export default function Home() {
     };
 
     detect();
-  }, [model, isStarted]);
+  }, [model, isStarted, voice]);
 
   // === VOICE COMMANDS ===
   useEffect(() => {
@@ -103,7 +139,7 @@ export default function Home() {
       const transcript = event.results[event.results.length - 1][0].transcript
         .trim()
         .toLowerCase();
-      console.log("Voice command:", transcript);
+      console.log("🎙️ Voice command:", transcript);
 
       if (transcript.includes("what do you see")) {
         if (lastDetected) speak(`I see a ${lastDetected}`);
@@ -121,13 +157,12 @@ export default function Home() {
     };
 
     recognition.onend = () => {
-      // Restart automatically to keep listening
-      recognition.start();
+      recognition.start(); // auto-restart
     };
 
     recognition.start();
     return () => recognition.stop();
-  }, [lastDetected]);
+  }, [lastDetected, voice]);
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
