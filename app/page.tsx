@@ -27,12 +27,17 @@ export default function Home() {
   const recentLabels = useRef<string[]>([]);
   const lastAnnouncementTime = useRef(0);
   const MIN_ANNOUNCEMENT_INTERVAL = 3000; // 3 seconds between announcements to prevent chatter
+  const frameSkipCounter = useRef(0); // To skip frames for better performance and small object focus
 
-  // === CAMERA SETUP ===
+  // === CAMERA SETUP WITH HIGHER RESOLUTION ===
   const setupCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 }, // Higher resolution for better small object detection
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       if (videoRef.current) {
@@ -41,7 +46,7 @@ export default function Home() {
         setIsStarted(true);
         setStatus("Camera started. Detecting objects...");
         // Initial announcement after camera starts
-        speak("Camera activated. I will announce objects I detect near you.");
+        speak("Camera activated. I will announce objects and people I detect near you.");
       }
     } catch (err) {
       console.error("Camera error:", err);
@@ -110,7 +115,7 @@ export default function Home() {
     })();
   }, []);
 
-  // === DETECTION LOOP (SMOOTH + STABLE) ===
+  // === DETECTION LOOP (SMOOTH + STABLE, WITH FRAME SKIPPING) ===
   useEffect(() => {
     if (!model || !isStarted) return;
 
@@ -120,19 +125,35 @@ export default function Home() {
         return;
       }
 
+      // Skip every other frame for better performance and focus on quality detection
+      frameSkipCounter.current++;
+      if (frameSkipCounter.current % 2 !== 0) {
+        requestAnimationFrame(detect);
+        return;
+      }
+
       detectingRef.current = true;
       const predictions: DetectedObject[] = await model.detect(videoRef.current);
       detectingRef.current = false;
 
       let label = "nothing";
-      // Use 0.5 threshold for COCO-SSD
-      if (predictions.length > 0 && predictions[0].score > 0.5) {
-        label = predictions[0].class;
+      // Lowered threshold to 0.4 for better sensitivity to small objects and humans
+      if (predictions.length > 0) {
+        // Sort by score descending and take the highest
+        const sortedPreds = predictions.sort((a, b) => b.score - a.score);
+        const topPred = sortedPreds.find(p => p.score > 0.4);
+        if (topPred) {
+          label = topPred.class;
+          // Special handling for humans
+          if (label === "person") {
+            label = "person";
+          }
+        }
       }
 
-      // Keep last 10 detections for improved stability
+      // Keep last 8 detections for improved stability (balanced for responsiveness)
       recentLabels.current.push(label);
-      if (recentLabels.current.length > 10) {
+      if (recentLabels.current.length > 8) {
         recentLabels.current.shift();
       }
 
@@ -140,7 +161,10 @@ export default function Home() {
       if (stable !== stableLabel) {
         setStableLabel(stable);
         if (stable !== "nothing") {
-          const msg = `Near you is a ${stable}.`;
+          let msg = `Near you is a ${stable}.`;
+          if (stable === "person") {
+            msg = `A person is near you.`;
+          }
           setStatus(msg);
           speak(msg);
         } else {
@@ -181,9 +205,15 @@ export default function Home() {
       console.log("🎙️ Voice command:", transcript);
 
       if (transcript.includes("what do you see")) {
-        if (stableLabel && stableLabel !== "nothing")
-          speak(`Near you is a ${stableLabel}.`);
-        else speak("I don't see anything near you right now.");
+        if (stableLabel && stableLabel !== "nothing") {
+          let msg = `Near you is a ${stableLabel}.`;
+          if (stableLabel === "person") {
+            msg = `A person is near you.`;
+          }
+          speak(msg);
+        } else {
+          speak("I don't see anything near you right now.");
+        }
       } else if (transcript.includes("stop speaking")) {
         window.speechSynthesis.cancel();
         lastAnnouncementTime.current = Date.now(); // Reset timer after manual stop
@@ -205,7 +235,7 @@ export default function Home() {
     const counts: Record<string, number> = {};
     for (const val of arr) counts[val] = (counts[val] || 0) + 1;
     const maxCount = Math.max(...Object.values(counts));
-    const majorityThreshold = arr.length * 0.6; // Require 60% majority for stability
+    const majorityThreshold = arr.length * 0.5; // Lowered to 50% for more responsiveness to changes
     if (maxCount < majorityThreshold) {
       return "nothing"; // Not stable enough, default to nothing
     }
@@ -215,7 +245,7 @@ export default function Home() {
   // === UI ===
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
-      <h1 className="text-3xl font-bold mb-4">👁️ Blind Vision Assistant (Accurate)</h1>
+      <h1 className="text-3xl font-bold mb-4">👁️ Blind Vision Assistant (Enhanced)</h1>
 
       {!isStarted && (
         <button
