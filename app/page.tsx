@@ -18,8 +18,7 @@ export default function Home() {
   const [lastSpoken, setLastSpoken] = useState("");
   const [stableLabel, setStableLabel] = useState("");
   const detectingRef = useRef(false);
-  const recentDetections = useRef<string[]>([]); // store last few frames
-  const lastSpokenTime = useRef<number>(0);
+  const recentDetections = useRef<string[]>([]);
 
   // === CAMERA SETUP ===
   const setupCamera = async () => {
@@ -35,12 +34,12 @@ export default function Home() {
         setStatus("Camera started. Loading model...");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Camera error:", err);
       setStatus("Camera permission denied or unavailable.");
     }
   };
 
-  // === LOAD BEST VOICE ===
+  // === LOAD ENGLISH VOICE ===
   useEffect(() => {
     const loadVoice = () => {
       const voices = window.speechSynthesis.getVoices();
@@ -51,19 +50,17 @@ export default function Home() {
           voices.find((v) => v.lang.startsWith("en")) ||
           voices[0];
         setVoice(best);
+        console.log("✅ Voice selected:", best?.name);
       }
     };
     loadVoice();
     window.speechSynthesis.onvoiceschanged = loadVoice;
   }, []);
 
-  // === CLEAR, SMOOTH SPEECH ===
+  // === SMOOTH SPEECH OUTPUT ===
   const speak = (text: string) => {
     if (!("speechSynthesis" in window) || !text) return;
-    if (text === lastSpoken) return; // don’t re-speak same text
-
-    const now = Date.now();
-    if (now - lastSpokenTime.current < 800) return; // wait at least 0.8s between speech
+    if (text === lastSpoken) return;
 
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
@@ -71,32 +68,43 @@ export default function Home() {
     utter.pitch = 1.0;
     utter.volume = 1.0;
     if (voice) utter.voice = voice;
-
     setLastSpoken(text);
-    lastSpokenTime.current = now;
     window.speechSynthesis.speak(utter);
   };
 
   // === LOAD MODEL ===
   useEffect(() => {
     (async () => {
-      await tf.setBackend("webgl");
-      await tf.ready();
-      const loadedModel = await cocoSsd.load();
-      const dummy = tf.zeros([300, 300, 3]) as tf.Tensor3D;
-      await loadedModel.detect(dummy);
-      dummy.dispose();
-      setModel(loadedModel);
-      setStatus("Model ready. Tap 'Start Camera' to begin detection.");
+      try {
+        console.log("⚙️ Setting up TensorFlow backend...");
+        await tf.setBackend("webgl");
+        await tf.ready();
+        console.log("✅ Backend ready:", tf.getBackend());
+
+        console.log("📦 Loading coco-ssd model...");
+        const loadedModel = await cocoSsd.load();
+        console.log("✅ Model loaded successfully!");
+
+        // Warm up model for instant inference
+        const dummy = tf.zeros([300, 300, 3]) as tf.Tensor3D;
+        await loadedModel.detect(dummy);
+        dummy.dispose();
+
+        setModel(loadedModel);
+        setStatus("Model loaded successfully! Ready for detection.");
+      } catch (err) {
+        console.error("❌ Model load error:", err);
+        setStatus("Failed to load detection model.");
+      }
     })();
   }, []);
 
-  // === DETECTION LOOP (SMOOTH) ===
+  // === DETECTION LOOP WITH STABILITY FILTER ===
   useEffect(() => {
     if (!model || !isStarted) return;
 
     const detect = async () => {
-      if (!videoRef.current || !model || detectingRef.current) {
+      if (!videoRef.current || detectingRef.current) {
         requestAnimationFrame(detect);
         return;
       }
@@ -105,26 +113,24 @@ export default function Home() {
       const predictions = await model.detect(videoRef.current);
       detectingRef.current = false;
 
-      let currentLabel = "nothing";
-
+      let label = "nothing";
       if (predictions.length > 0) {
-        currentLabel = predictions[0].class;
+        label = predictions[0].class;
       }
 
-      // Add to recent detections (limit last 5)
-      recentDetections.current.push(currentLabel);
+      // Smooth detection: store last 5 results
+      recentDetections.current.push(label);
       if (recentDetections.current.length > 5) {
         recentDetections.current.shift();
       }
 
-      // Check if majority of recent detections are the same → stable
-      const mostCommon = findMostFrequent(recentDetections.current);
-      if (mostCommon !== stableLabel) {
-        setStableLabel(mostCommon);
-        if (mostCommon !== "nothing") {
-          const message = `I see a ${mostCommon}`;
-          setStatus(message);
-          speak(message);
+      const stable = getStableLabel(recentDetections.current);
+      if (stable !== stableLabel) {
+        setStableLabel(stable);
+        if (stable !== "nothing") {
+          const msg = `I see a ${stable}`;
+          setStatus(msg);
+          speak(msg);
         } else {
           setStatus("Nothing detected");
         }
@@ -136,24 +142,18 @@ export default function Home() {
     detect();
   }, [model, isStarted, voice, stableLabel]);
 
-  // === HELPER: Find most frequent label in last few frames ===
-  const findMostFrequent = (arr: string[]) => {
-    const freq: Record<string, number> = {};
-    for (const a of arr) freq[a] = (freq[a] || 0) + 1;
-    return Object.keys(freq).reduce((a, b) => (freq[a] > freq[b] ? a : b));
-  };
-
   // === VOICE COMMANDS ===
   useEffect(() => {
     if (
       !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
     ) {
-      console.warn("Speech recognition not supported in this browser.");
+      console.warn("Speech recognition not supported.");
       return;
     }
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -163,6 +163,7 @@ export default function Home() {
       const transcript = event.results[event.results.length - 1][0].transcript
         .trim()
         .toLowerCase();
+      console.log("🎙️ Voice command:", transcript);
 
       if (transcript.includes("what do you see")) {
         if (stableLabel && stableLabel !== "nothing")
@@ -179,8 +180,16 @@ export default function Home() {
     recognition.onerror = (err: any) => console.error("Speech recognition error:", err);
     recognition.onend = () => recognition.start();
     recognition.start();
+
     return () => recognition.stop();
   }, [stableLabel, voice]);
+
+  // === STABILITY HELPER ===
+  const getStableLabel = (arr: string[]) => {
+    const counts: Record<string, number> = {};
+    for (const val of arr) counts[val] = (counts[val] || 0) + 1;
+    return Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+  };
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
@@ -205,7 +214,7 @@ export default function Home() {
 
       <p className="mt-4 text-lg text-white text-center">{status}</p>
       <p className="mt-2 text-sm text-gray-400 text-center">
-        🎤 Say: “What do you see?”, “Stop speaking”, “Start camera”
+        🎤 Try: “What do you see?”, “Stop speaking”, or “Start camera”
       </p>
     </main>
   );
