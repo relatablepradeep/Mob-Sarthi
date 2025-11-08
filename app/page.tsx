@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 
+// 👇 Custom interface for speech recognition typing (fixes TS error)
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
@@ -34,7 +39,7 @@ export default function Home() {
   // === SPEAK FUNCTION ===
   const speak = (text: string) => {
     if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel(); // stop any previous speech
+    window.speechSynthesis.cancel(); // stop previous speech
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.1;
     window.speechSynthesis.speak(utter);
@@ -63,7 +68,7 @@ export default function Home() {
         setStatus(message);
         setLastDetected(top.class);
 
-        // speak only if new object detected
+        // Speak only if new object is detected
         if (top.class !== lastSpoken) {
           speak(message);
         }
@@ -79,8 +84,10 @@ export default function Home() {
 
   // === VOICE COMMANDS ===
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      console.warn("Speech recognition not supported");
+    if (
+      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
+      console.warn("Speech recognition not supported in this browser.");
       return;
     }
 
@@ -114,7 +121,7 @@ export default function Home() {
     };
 
     recognition.onend = () => {
-      // restart automatically for continuous listening
+      // Restart automatically to keep listening
       recognition.start();
     };
 
@@ -146,7 +153,7 @@ export default function Home() {
       <p className="mt-4 text-lg text-white text-center">{status}</p>
 
       <p className="mt-2 text-sm text-gray-400 text-center">
-        🎤 Try saying: "What do you see?" or "Stop speaking"
+        🎤 Try saying: “What do you see?”, “Stop speaking”, or “Start camera”
       </p>
     </main>
   );
