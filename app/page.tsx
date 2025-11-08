@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs"; // explicitly import tf
+import "@tensorflow/tfjs-backend-webgl";
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -16,6 +17,7 @@ export default function Home() {
   const [isStarted, setIsStarted] = useState(false);
   const [lastDetected, setLastDetected] = useState("");
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const detectingRef = useRef(false);
 
   // === CAMERA SETUP ===
   const setupCamera = async () => {
@@ -41,14 +43,9 @@ export default function Home() {
     const loadVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
-        // Try to find a good English voice
         const preferred =
-          voices.find((v) =>
-            v.name.includes("Google US English")
-          ) ||
-          voices.find((v) =>
-            v.name.includes("Google UK English Female")
-          ) ||
+          voices.find((v) => v.name.includes("Google US English")) ||
+          voices.find((v) => v.name.includes("Google UK English Female")) ||
           voices.find((v) => v.lang.startsWith("en")) ||
           voices[0];
         setVoice(preferred);
@@ -60,20 +57,16 @@ export default function Home() {
     window.speechSynthesis.onvoiceschanged = loadVoice;
   }, []);
 
-  // === SPEAK FUNCTION (SMOOTH) ===
+  // === FAST, CLEAR SPEAK ===
   const speak = (text: string) => {
     if (!("speechSynthesis" in window) || !text) return;
-
-    // Prevent re-speaking same thing
     if (text === lastSpoken) return;
-
-    // Cancel ongoing only if it's still speaking
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
 
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 0.95; // slightly slower for clarity
+    utter.rate = 1.0;
     utter.pitch = 1.0;
     utter.volume = 1.0;
     if (voice) utter.voice = voice;
@@ -82,40 +75,55 @@ export default function Home() {
     window.speechSynthesis.speak(utter);
   };
 
-  // === LOAD MODEL ===
+  // === LOAD MODEL + OPTIMIZE BACKEND ===
   useEffect(() => {
-    cocoSsd.load().then((loadedModel) => {
+    (async () => {
+      await tf.setBackend("webgl");
+      await tf.ready();
+
+      const loadedModel = await cocoSsd.load();
+      // Warm up once with an empty tensor (improves first detection)
+      const dummy = tf.zeros([1, 300, 300, 3]);
+      await loadedModel.detect(dummy);
+      dummy.dispose();
+
       setModel(loadedModel);
-      setStatus("Model loaded. Tap 'Start Camera' to begin detection.");
-    });
+      setStatus("Model ready. Tap 'Start Camera' to begin detection.");
+    })();
   }, []);
 
-  // === DETECTION LOOP ===
+  // === DETECTION LOOP (FAST) ===
   useEffect(() => {
     if (!model || !isStarted) return;
 
-    const detect = async () => {
-      if (!videoRef.current) return;
-      const predictions = await model.detect(videoRef.current);
+    let lastTime = 0;
 
-      if (predictions.length > 0) {
-        const top = predictions[0];
-        const message = `I see a ${top.class}`;
-        setStatus(message);
-        setLastDetected(top.class);
+    const detect = async (timestamp: number) => {
+      if (!videoRef.current || !model) return;
 
-        // Speak only if new object detected
-        if (top.class !== lastSpoken) {
-          speak(message);
+      // run detection every ~200ms
+      if (timestamp - lastTime > 200 && !detectingRef.current) {
+        detectingRef.current = true;
+        const predictions = await model.detect(videoRef.current);
+
+        if (predictions.length > 0) {
+          const top = predictions[0];
+          const message = `I see a ${top.class}`;
+          setStatus(message);
+          setLastDetected(top.class);
+          if (top.class !== lastSpoken) speak(message);
+        } else {
+          setStatus("Nothing detected");
         }
-      } else {
-        setStatus("Nothing detected");
+
+        detectingRef.current = false;
+        lastTime = timestamp;
       }
 
       requestAnimationFrame(detect);
     };
 
-    detect();
+    requestAnimationFrame(detect);
   }, [model, isStarted, voice]);
 
   // === VOICE COMMANDS ===
@@ -130,7 +138,6 @@ export default function Home() {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = "en-US";
@@ -139,7 +146,6 @@ export default function Home() {
       const transcript = event.results[event.results.length - 1][0].transcript
         .trim()
         .toLowerCase();
-      console.log("🎙️ Voice command:", transcript);
 
       if (transcript.includes("what do you see")) {
         if (lastDetected) speak(`I see a ${lastDetected}`);
@@ -152,14 +158,8 @@ export default function Home() {
       }
     };
 
-    recognition.onerror = (err: any) => {
-      console.error("Speech recognition error:", err);
-    };
-
-    recognition.onend = () => {
-      recognition.start(); // auto-restart
-    };
-
+    recognition.onerror = (err: any) => console.error("Speech recognition error:", err);
+    recognition.onend = () => recognition.start();
     recognition.start();
     return () => recognition.stop();
   }, [lastDetected, voice]);
@@ -188,7 +188,7 @@ export default function Home() {
       <p className="mt-4 text-lg text-white text-center">{status}</p>
 
       <p className="mt-2 text-sm text-gray-400 text-center">
-        🎤 Try saying: “What do you see?”, “Stop speaking”, or “Start camera”
+        🎤 Try: “What do you see?”, “Stop speaking”, “Start camera”
       </p>
     </main>
   );
