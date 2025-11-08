@@ -19,6 +19,7 @@ export default function Home() {
   const [stableLabel, setStableLabel] = useState("");
   const detectingRef = useRef(false);
   const recentLabels = useRef<string[]>([]);
+  const announcementCooldown = useRef<NodeJS.Timeout | null>(null);
 
   // === CAMERA SETUP ===
   const setupCamera = async () => {
@@ -31,7 +32,9 @@ export default function Home() {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setIsStarted(true);
-        setStatus("Camera started. Loading model...");
+        setStatus("Camera started. Detecting objects...");
+        // Initial announcement after camera starts
+        speak("Camera activated. I will announce objects I detect near you.");
       }
     } catch (err) {
       console.error("Camera error:", err);
@@ -62,14 +65,20 @@ export default function Home() {
     if (!("speechSynthesis" in window) || !text) return;
     if (text === lastSpoken) return;
 
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.0;
-    utter.pitch = 1.0;
-    utter.volume = 1.0;
-    if (voice) utter.voice = voice;
-    setLastSpoken(text);
-    window.speechSynthesis.speak(utter);
+    // Cooldown to prevent rapid-fire announcements (e.g., 3 seconds between similar announcements)
+    if (announcementCooldown.current) {
+      clearTimeout(announcementCooldown.current);
+    }
+    announcementCooldown.current = setTimeout(() => {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      utter.volume = 1.0;
+      if (voice) utter.voice = voice;
+      setLastSpoken(text);
+      window.speechSynthesis.speak(utter);
+    }, 2000); // 2-second delay before speaking to allow for stability
   };
 
   // === LOAD LIGHTWEIGHT MODEL ===
@@ -122,11 +131,13 @@ export default function Home() {
       if (stable !== stableLabel) {
         setStableLabel(stable);
         if (stable !== "nothing") {
-          const msg = `I see ${stable}`;
+          const msg = `Near you is ${stable}.`;
           setStatus(msg);
           speak(msg);
         } else {
           setStatus("Nothing detected");
+          // Optional: Announce when nothing is detected after seeing something
+          // speak("I don't see anything near you right now.");
         }
       }
 
@@ -162,8 +173,8 @@ export default function Home() {
 
       if (transcript.includes("what do you see")) {
         if (stableLabel && stableLabel !== "nothing")
-          speak(`I see ${stableLabel}`);
-        else speak("I don't see anything right now.");
+          speak(`Near you is ${stableLabel}.`);
+        else speak("I don't see anything near you right now.");
       } else if (transcript.includes("stop speaking")) {
         window.speechSynthesis.cancel();
         speak("Okay, I stopped speaking.");
