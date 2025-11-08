@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import * as tf from "@tensorflow/tfjs"; // explicitly import tf
+import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 
 interface SpeechRecognitionEvent extends Event {
@@ -13,10 +13,10 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [status, setStatus] = useState("Waiting for camera permission...");
-  const [lastSpoken, setLastSpoken] = useState("");
   const [isStarted, setIsStarted] = useState(false);
   const [lastDetected, setLastDetected] = useState("");
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [lastSpoken, setLastSpoken] = useState("");
   const detectingRef = useRef(false);
 
   // === CAMERA SETUP ===
@@ -33,23 +33,23 @@ export default function Home() {
         setStatus("Camera started. Loading model...");
       }
     } catch (err) {
-      setStatus("Camera permission denied or unavailable.");
       console.error(err);
+      setStatus("Camera permission denied or unavailable.");
     }
   };
 
-  // === LOAD BEST VOICE ===
+  // === LOAD BEST ENGLISH VOICE ===
   useEffect(() => {
     const loadVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
-        const preferred =
+        const best =
           voices.find((v) => v.name.includes("Google US English")) ||
           voices.find((v) => v.name.includes("Google UK English Female")) ||
           voices.find((v) => v.lang.startsWith("en")) ||
           voices[0];
-        setVoice(preferred);
-        console.log("✅ Using voice:", preferred?.name);
+        setVoice(best);
+        console.log("✅ Using voice:", best?.name);
       }
     };
 
@@ -57,14 +57,12 @@ export default function Home() {
     window.speechSynthesis.onvoiceschanged = loadVoice;
   }, []);
 
-  // === FAST, CLEAR SPEAK ===
+  // === CLEAR, INSTANT SPEECH ===
   const speak = (text: string) => {
     if (!("speechSynthesis" in window) || !text) return;
-    if (text === lastSpoken) return;
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-    }
+    if (text === lastSpoken) return; // avoid repeats
 
+    window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.0;
     utter.pitch = 1.0;
@@ -75,15 +73,15 @@ export default function Home() {
     window.speechSynthesis.speak(utter);
   };
 
-  // === LOAD MODEL + OPTIMIZE BACKEND ===
+  // === LOAD MODEL (FAST GPU MODE) ===
   useEffect(() => {
     (async () => {
       await tf.setBackend("webgl");
       await tf.ready();
 
       const loadedModel = await cocoSsd.load();
-      // Warm up once with an empty tensor (improves first detection)
-      const dummy = tf.zeros([1, 300, 300, 3]);
+      // Warm up once for faster first detection
+      const dummy = tf.zeros([300, 300, 3]) as tf.Tensor3D;
       await loadedModel.detect(dummy);
       dummy.dispose();
 
@@ -92,41 +90,40 @@ export default function Home() {
     })();
   }, []);
 
-  // === DETECTION LOOP (FAST) ===
+  // === REAL-TIME DETECTION LOOP ===
   useEffect(() => {
     if (!model || !isStarted) return;
 
-    let lastTime = 0;
-
-    const detect = async (timestamp: number) => {
-      if (!videoRef.current || !model) return;
-
-      // run detection every ~200ms
-      if (timestamp - lastTime > 200 && !detectingRef.current) {
-        detectingRef.current = true;
-        const predictions = await model.detect(videoRef.current);
-
-        if (predictions.length > 0) {
-          const top = predictions[0];
-          const message = `I see a ${top.class}`;
-          setStatus(message);
-          setLastDetected(top.class);
-          if (top.class !== lastSpoken) speak(message);
-        } else {
-          setStatus("Nothing detected");
-        }
-
-        detectingRef.current = false;
-        lastTime = timestamp;
+    const detect = async () => {
+      if (!videoRef.current || !model || detectingRef.current) {
+        requestAnimationFrame(detect);
+        return;
       }
 
+      detectingRef.current = true;
+      const predictions = await model.detect(videoRef.current);
+
+      if (predictions.length > 0) {
+        const top = predictions[0];
+        const message = `I see a ${top.class}`;
+        setStatus(message);
+
+        if (top.class !== lastDetected) {
+          setLastDetected(top.class);
+          speak(message);
+        }
+      } else {
+        setStatus("Nothing detected");
+      }
+
+      detectingRef.current = false;
       requestAnimationFrame(detect);
     };
 
-    requestAnimationFrame(detect);
+    detect();
   }, [model, isStarted, voice]);
 
-  // === VOICE COMMANDS ===
+  // === VOICE COMMANDS (NO DELAY) ===
   useEffect(() => {
     if (
       !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
@@ -137,6 +134,7 @@ export default function Home() {
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -146,6 +144,7 @@ export default function Home() {
       const transcript = event.results[event.results.length - 1][0].transcript
         .trim()
         .toLowerCase();
+      console.log("🎙️ Voice command:", transcript);
 
       if (transcript.includes("what do you see")) {
         if (lastDetected) speak(`I see a ${lastDetected}`);
@@ -159,8 +158,10 @@ export default function Home() {
     };
 
     recognition.onerror = (err: any) => console.error("Speech recognition error:", err);
-    recognition.onend = () => recognition.start();
+    recognition.onend = () => recognition.start(); // always restart
+
     recognition.start();
+
     return () => recognition.stop();
   }, [lastDetected, voice]);
 
@@ -186,9 +187,8 @@ export default function Home() {
       />
 
       <p className="mt-4 text-lg text-white text-center">{status}</p>
-
       <p className="mt-2 text-sm text-gray-400 text-center">
-        🎤 Try: “What do you see?”, “Stop speaking”, “Start camera”
+        🎤 Try saying: “What do you see?”, “Stop speaking”, or “Start camera”
       </p>
     </main>
   );
