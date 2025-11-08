@@ -19,7 +19,8 @@ export default function Home() {
   const [stableLabel, setStableLabel] = useState("");
   const detectingRef = useRef(false);
   const recentLabels = useRef<string[]>([]);
-  const announcementCooldown = useRef<NodeJS.Timeout | null>(null);
+  const lastAnnouncementTime = useRef(0);
+  const MIN_ANNOUNCEMENT_INTERVAL = 3000; // 3 seconds between announcements to prevent chatter
 
   // === CAMERA SETUP ===
   const setupCamera = async () => {
@@ -60,25 +61,25 @@ export default function Home() {
     window.speechSynthesis.onvoiceschanged = loadVoice;
   }, []);
 
-  // === CLEAR, SMOOTH SPEECH ===
+  // === CLEAR, SMOOTH SPEECH WITH THROTTLING ===
   const speak = (text: string) => {
     if (!("speechSynthesis" in window) || !text) return;
     if (text === lastSpoken) return;
 
-    // Cooldown to prevent rapid-fire announcements (e.g., 3 seconds between similar announcements)
-    if (announcementCooldown.current) {
-      clearTimeout(announcementCooldown.current);
+    const now = Date.now();
+    if (now - lastAnnouncementTime.current < MIN_ANNOUNCEMENT_INTERVAL) {
+      return; // Skip if too soon after last announcement
     }
-    announcementCooldown.current = setTimeout(() => {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.0;
-      utter.pitch = 1.0;
-      utter.volume = 1.0;
-      if (voice) utter.voice = voice;
-      setLastSpoken(text);
-      window.speechSynthesis.speak(utter);
-    }, 2000); // 2-second delay before speaking to allow for stability
+
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    if (voice) utter.voice = voice;
+    setLastSpoken(text);
+    lastAnnouncementTime.current = now;
+    window.speechSynthesis.speak(utter);
   };
 
   // === LOAD LIGHTWEIGHT MODEL ===
@@ -121,9 +122,9 @@ export default function Home() {
         label = predictions[0].className;
       }
 
-      // Keep last 5 detections for stability
+      // Keep last 7 detections for better stability (increased from 5)
       recentLabels.current.push(label);
-      if (recentLabels.current.length > 5) {
+      if (recentLabels.current.length > 7) {
         recentLabels.current.shift();
       }
 
@@ -177,6 +178,7 @@ export default function Home() {
         else speak("I don't see anything near you right now.");
       } else if (transcript.includes("stop speaking")) {
         window.speechSynthesis.cancel();
+        lastAnnouncementTime.current = Date.now(); // Reset timer after manual stop
         speak("Okay, I stopped speaking.");
       } else if (transcript.includes("start camera")) {
         setupCamera();
