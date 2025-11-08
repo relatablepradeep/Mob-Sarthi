@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import * as depthEstimation from "@tensorflow-models/depth-estimation";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 
@@ -19,7 +18,6 @@ interface DetectedObject {
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
-  const [depthEstimator, setDepthEstimator] = useState<depthEstimation.DepthEstimator | null>(null);
   const [status, setStatus] = useState("Waiting for camera permission...");
   const [isStarted, setIsStarted] = useState(false);
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -31,6 +29,13 @@ export default function Home() {
   const lastAnnouncementTime = useRef(0);
   const MIN_ANNOUNCEMENT_INTERVAL = 3000; // 3 seconds between announcements to prevent chatter
   const frameSkipCounter = useRef(0); // To skip frames for better performance and small object focus
+
+  // Simple distance estimation based on bounding box size (approximation)
+  const calculateDistance = (bbox: [number, number, number, number], videoHeight: number): number => {
+    const heightRatio = bbox[3] / videoHeight;
+    // Arbitrary scaling: larger bbox = closer (assume 0.8 ratio ~1m, 0.1 ratio ~5m)
+    return Math.max(0.5, 5 - heightRatio * 6);
+  };
 
   // === CAMERA SETUP WITH HIGHER RESOLUTION ===
   const setupCamera = async () => {
@@ -49,7 +54,7 @@ export default function Home() {
         setIsStarted(true);
         setStatus("Camera started. Detecting objects...");
         // Initial announcement after camera starts
-        speak("Camera activated. I will announce objects and people I detect near you with distances.");
+        speak("Camera activated. I will announce objects and people I detect near you with estimated distances.");
       }
     } catch (err) {
       console.error("Camera error:", err);
@@ -96,32 +101,7 @@ export default function Home() {
     window.speechSynthesis.speak(utter);
   };
 
-  // === HELPER: GET AVERAGE DEPTH IN BBOX ===
-  const getAverageDepth = (
-    depthMap: depthEstimation.DepthMap,
-    bbox: [number, number, number, number],
-    videoWidth: number,
-    videoHeight: number
-  ): number => {
-    const depths = depthMap.toArray();
-    const [x, y, width, height] = bbox;
-    let sum = 0;
-    let count = 0;
-    for (let dy = 0; dy < height; dy++) {
-      for (let dx = 0; dx < width; dx++) {
-        const px = Math.floor(x + dx);
-        const py = Math.floor(y + dy);
-        if (px >= 0 && px < videoWidth && py >= 0 && py < videoHeight) {
-          const idx = py * videoWidth + px;
-          sum += depths[idx];
-          count++;
-        }
-      }
-    }
-    return count > 0 ? sum / count : 0;
-  };
-
-  // === LOAD MODELS ===
+  // === LOAD COCO-SSD MODEL FOR BETTER ACCURACY ===
   useEffect(() => {
     (async () => {
       try {
@@ -130,21 +110,15 @@ export default function Home() {
         await tf.ready();
         console.log("✅ Backend ready:", tf.getBackend());
 
-        setStatus("Loading COCO-SSD model...");
-        const detectionModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+        setStatus("Loading COCO-SSD model (accurate detection)...");
+        // Use mobilenet_v2 base for higher accuracy
+        const loadedModel = await cocoSsd.load({ base: 'mobilenet_v2' });
         console.log("✅ COCO-SSD model loaded!");
-        setModel(detectionModel);
-
-        setStatus("Loading Depth Estimation model...");
-        const depthModel = depthEstimation.SupportedModels.ARPortraitDepth;
-        const estimator = await depthEstimation.createEstimator(depthModel);
-        console.log("✅ Depth Estimator loaded!");
-        setDepthEstimator(estimator);
-
-        setStatus("Models ready. Tap 'Start Camera' to begin detection.");
+        setModel(loadedModel);
+        setStatus("Model ready. Tap 'Start Camera' to begin detection.");
       } catch (err) {
         console.error("Model load error:", err);
-        setStatus("Failed to load models.");
+        setStatus("Failed to load model.");
       }
     })();
   }, []);
@@ -196,35 +170,21 @@ export default function Home() {
       const stable = getStableLabel(recentLabels.current);
       if (stable !== stableLabel) {
         setStableLabel(stable);
-        if (stable !== "nothing" && depthEstimator && currentPred) {
-          try {
-            const estimationConfig = { minDepth: 0.5, maxDepth: 5.0 }; // Reasonable range in meters
-            const depthMap = await depthEstimator.estimateDepth(videoRef.current, estimationConfig);
-            const avgDepth = getAverageDepth(
-              depthMap,
-              currentPred.bbox,
-              videoRef.current.videoWidth,
-              videoRef.current.videoHeight
-            );
-            setCurrentDistance(avgDepth);
-            let msg = `A ${stable} is approximately ${Math.round(avgDepth * 10) / 10} meters near you.`;
-            if (stable === "person") {
-              msg = `A person is approximately ${Math.round(avgDepth * 10) / 10} meters near you.`;
-            }
-            setStatus(msg);
-            speak(msg);
-          } catch (depthErr) {
-            console.error("Depth estimation error:", depthErr);
-            // Fallback without distance
-            let fallbackMsg = `Near you is a ${stable}.`;
-            if (stable === "person") {
-              fallbackMsg = `A person is near you.`;
-            }
-            setStatus(fallbackMsg);
-            speak(fallbackMsg);
+        if (stable !== "nothing" && currentPred) {
+          // Simple distance estimation
+          const avgDepth = calculateDistance(
+            currentPred.bbox,
+            videoRef.current.videoHeight
+          );
+          setCurrentDistance(avgDepth);
+          let msg = `A ${stable} is approximately ${Math.round(avgDepth * 10) / 10} meters near you.`;
+          if (stable === "person") {
+            msg = `A person is approximately ${Math.round(avgDepth * 10) / 10} meters near you.`;
           }
+          setStatus(msg);
+          speak(msg);
         } else if (stable !== "nothing") {
-          // Fallback if no depth
+          // Fallback if no bbox
           let msg = `Near you is a ${stable}.`;
           if (stable === "person") {
             msg = `A person is near you.`;
@@ -243,7 +203,7 @@ export default function Home() {
     };
 
     detect();
-  }, [model, isStarted, voice, stableLabel, depthEstimator]);
+  }, [model, isStarted, voice, stableLabel]);
 
   // === VOICE COMMANDS ===
   useEffect(() => {
@@ -338,6 +298,9 @@ export default function Home() {
       <p className="mt-4 text-lg text-white text-center">{status}</p>
       <p className="mt-2 text-sm text-gray-400 text-center">
         🎤 Say: “What do you see?”, “Stop speaking”, or “Start camera”
+      </p>
+      <p className="mt-1 text-xs text-gray-500 text-center">
+        💡 Distance is estimated based on object size (approximation).
       </p>
     </main>
   );
