@@ -83,7 +83,7 @@ export default function Home() {
 
         setStatus("Loading MobileNet model (fast)...");
         const loadedModel = await mobilenet.load({ version: 2, alpha: 1.0 });
-        console.log("✅ Model loaded instantly!");
+        console.log("✅ MobileNet model loaded!");
         setModel(loadedModel);
         setStatus("Model ready. Tap 'Start Camera' to begin detection.");
       } catch (err) {
@@ -186,6 +186,7 @@ export default function Home() {
     return Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
   };
 
+  // === UI ===
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
       <h1 className="text-3xl font-bold mb-4">👁️ Blind Vision Assistant (Fast)</h1>
@@ -209,7 +210,7 @@ export default function Home() {
 
       <p className="mt-4 text-lg text-white text-center">{status}</p>
       <p className="mt-2 text-sm text-gray-400 text-center">
-        🎤 Say: “What do you see?”, “Stop speaking”, “Start camera”
+        🎤 Say: “What do you see?”, “Stop speaking”, or “Start camera”
       </p>
     </main>
   );
