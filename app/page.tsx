@@ -10,7 +10,9 @@ export default function Home() {
   const [status, setStatus] = useState("Waiting for camera permission...");
   const [lastSpoken, setLastSpoken] = useState("");
   const [isStarted, setIsStarted] = useState(false);
+  const [lastDetected, setLastDetected] = useState("");
 
+  // === CAMERA SETUP ===
   const setupCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -29,15 +31,17 @@ export default function Home() {
     }
   };
 
+  // === SPEAK FUNCTION ===
   const speak = (text: string) => {
-    if (text !== lastSpoken && "speechSynthesis" in window) {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.1;
-      window.speechSynthesis.speak(utter);
-      setLastSpoken(text);
-    }
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel(); // stop any previous speech
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.1;
+    window.speechSynthesis.speak(utter);
+    setLastSpoken(text);
   };
 
+  // === LOAD MODEL ===
   useEffect(() => {
     cocoSsd.load().then((loadedModel) => {
       setModel(loadedModel);
@@ -45,23 +49,78 @@ export default function Home() {
     });
   }, []);
 
+  // === DETECTION LOOP ===
   useEffect(() => {
     if (!model || !isStarted) return;
+
     const detect = async () => {
       if (!videoRef.current) return;
       const predictions = await model.detect(videoRef.current);
+
       if (predictions.length > 0) {
         const top = predictions[0];
         const message = `I see a ${top.class}`;
         setStatus(message);
-        speak(message);
+        setLastDetected(top.class);
+
+        // speak only if new object detected
+        if (top.class !== lastSpoken) {
+          speak(message);
+        }
       } else {
         setStatus("Nothing detected");
       }
+
       requestAnimationFrame(detect);
     };
+
     detect();
   }, [model, isStarted]);
+
+  // === VOICE COMMANDS ===
+  useEffect(() => {
+    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+      console.warn("Speech recognition not supported");
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[event.results.length - 1][0].transcript
+        .trim()
+        .toLowerCase();
+      console.log("Voice command:", transcript);
+
+      if (transcript.includes("what do you see")) {
+        if (lastDetected) speak(`I see a ${lastDetected}`);
+        else speak("I don't see anything right now.");
+      } else if (transcript.includes("stop speaking")) {
+        window.speechSynthesis.cancel();
+        speak("Okay, I stopped speaking.");
+      } else if (transcript.includes("start camera")) {
+        setupCamera();
+      }
+    };
+
+    recognition.onerror = (err: any) => {
+      console.error("Speech recognition error:", err);
+    };
+
+    recognition.onend = () => {
+      // restart automatically for continuous listening
+      recognition.start();
+    };
+
+    recognition.start();
+    return () => recognition.stop();
+  }, [lastDetected]);
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 p-4">
@@ -85,6 +144,10 @@ export default function Home() {
       />
 
       <p className="mt-4 text-lg text-white text-center">{status}</p>
+
+      <p className="mt-2 text-sm text-gray-400 text-center">
+        🎤 Try saying: "What do you see?" or "Stop speaking"
+      </p>
     </main>
   );
 }
